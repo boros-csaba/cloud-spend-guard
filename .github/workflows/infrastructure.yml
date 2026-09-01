@@ -34,7 +34,7 @@ jobs:
           dotnet-version: '8.0.x'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - run: npm i -g aws-cdk@2
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -54,7 +54,7 @@ jobs:
           dotnet-version: '8.0.x'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - run: npm i -g aws-cdk@2
       - uses: aws-actions/configure-aws-credentials@v4
         with:
