@@ -5,11 +5,13 @@ on:
     branches: [master]
     paths:
       - 'infrastructure/**'
+      - 'apps/**'
       - '.github/workflows/infrastructure.yml'
   push:
     branches: [master]
     paths:
       - 'infrastructure/**'
+      - 'apps/**'
       - '.github/workflows/infrastructure.yml'
 
 permissions:

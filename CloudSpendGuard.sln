@@ -1,0 +1,62 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "infrastructure", "infrastructure", "{DFEE68D8-A7D0-1A41-506C-9B74AA9A7B7B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudSpendGuard.Infrastructure", "infrastructure\CloudSpendGuard.Infrastructure\CloudSpendGuard.Infrastructure.csproj", "{642ABF04-1D18-4326-94B6-3D00B75FD29F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "apps", "apps", "{1787FE1D-075E-9E68-7218-25F1BD1BBEAB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "functions", "functions", "{3A6919D8-0A3C-BD9F-B02B-3CD463BC4F03}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AuditsFunction", "AuditsFunction", "{481A3B03-D20F-C24F-54A4-E439672DC76E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CloudSpendGuard.Functions.Audits", "apps\functions\AuditsFunction\CloudSpendGuard.Functions.Audits.csproj", "{D0559686-AB1C-4D67-9877-6A7B05CE4642}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Debug|x64.Build.0 = Debug|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Debug|x86.Build.0 = Debug|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Release|x64.ActiveCfg = Release|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Release|x64.Build.0 = Release|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Release|x86.ActiveCfg = Release|Any CPU
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F}.Release|x86.Build.0 = Release|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Debug|x64.Build.0 = Debug|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Debug|x86.Build.0 = Debug|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Release|x64.ActiveCfg = Release|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Release|x64.Build.0 = Release|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Release|x86.ActiveCfg = Release|Any CPU
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{642ABF04-1D18-4326-94B6-3D00B75FD29F} = {DFEE68D8-A7D0-1A41-506C-9B74AA9A7B7B}
+		{3A6919D8-0A3C-BD9F-B02B-3CD463BC4F03} = {1787FE1D-075E-9E68-7218-25F1BD1BBEAB}
+		{481A3B03-D20F-C24F-54A4-E439672DC76E} = {3A6919D8-0A3C-BD9F-B02B-3CD463BC4F03}
+		{D0559686-AB1C-4D67-9877-6A7B05CE4642} = {481A3B03-D20F-C24F-54A4-E439672DC76E}
+	EndGlobalSection
+EndGlobal
