@@ -62,4 +62,4 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-      - run: cdk deploy --require-approval never
+      - run: cdk deploy --all --require-approval never

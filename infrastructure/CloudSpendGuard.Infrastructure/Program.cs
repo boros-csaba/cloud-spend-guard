@@ -7,5 +7,11 @@ Tags.Of(app).Add("Project", "CloudSpendGuard");
 Tags.Of(app).Add("Environment", "Production");
 Tags.Of(app).Add("ManagedBy", "CDK");
 
-new CloudSpendGuardStack(app, "CloudSpendGuardStack");
+var dnsStack = new CloudSpendGuardDnsStack(app, "CloudSpendGuardDnsStack");
+
+new CloudSpendGuardStack(app, "CloudSpendGuardStack", new CloudSpendGuardStackProps
+{
+    HostedZone = dnsStack.HostedZone,
+});
+
 app.Synth();
