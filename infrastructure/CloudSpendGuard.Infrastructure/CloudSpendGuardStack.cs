@@ -36,13 +36,13 @@ public class CloudSpendGuardStack : Stack
     {
         var auditsFunction = new Function(this, "AuditsFunction", new FunctionProps
         {
-            Runtime = Runtime.DOTNET_8,
+            Runtime = Runtime.DOTNET_10,
             Handler = "CloudSpendGuard.Functions.Audits::CloudSpendGuard.Functions.Audits.Function::Handler",
             Code = Code.FromAsset(AuditsProjectPath, new AssetOptions
             {
                 Bundling = new BundlingOptions
                 {
-                    Image = Runtime.DOTNET_8.BundlingImage,
+                    Image = Runtime.DOTNET_10.BundlingImage,
                     Local = new DotNetBundler(AuditsProjectPath),
                 },
             }),
