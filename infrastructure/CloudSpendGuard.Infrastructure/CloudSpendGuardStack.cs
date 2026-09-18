@@ -3,6 +3,8 @@ using Amazon.CDK.AWS.Apigatewayv2;
 using Amazon.CDK.AWS.CertificateManager;
 using Amazon.CDK.AWS.CloudFront;
 using Amazon.CDK.AWS.CloudFront.Origins;
+using Amazon.CDK.AWS.DynamoDB;
+using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.Lambda;
 using Amazon.CDK.AWS.Logs;
 using Amazon.CDK.AWS.Route53;
@@ -11,6 +13,7 @@ using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Deployment;
 using Amazon.CDK.AwsApigatewayv2Integrations;
 using Constructs;
+using Attribute = Amazon.CDK.AWS.DynamoDB.Attribute;
 using AssetOptions = Amazon.CDK.AWS.S3.Assets.AssetOptions;
 using Distribution = Amazon.CDK.AWS.CloudFront.Distribution;
 using Function = Amazon.CDK.AWS.Lambda.Function;
@@ -29,6 +32,8 @@ public class CloudSpendGuardStackProps : StackProps
 public class CloudSpendGuardStack : Stack
 {
     private const string AuditsProjectPath = "../apps/functions/AuditsFunction";
+    private const string ConnectionsProjectPath = "../apps/functions/ConnectionsFunction";
+    private const string ConnectionsHandlerPrefix = "CloudSpendGuard.Functions.Connections::CloudSpendGuard.Functions.Connections";
     private const string WebProjectPath = "../apps/web";
 
     public CloudSpendGuardStack(Construct scope, string id, CloudSpendGuardStackProps props)
@@ -52,13 +57,101 @@ public class CloudSpendGuardStack : Stack
             }),
         });
 
+        var connectionsTable = new Table(this, "ConnectionsTable", new TableProps
+        {
+            PartitionKey = new Attribute { Name = "id", Type = AttributeType.STRING },
+            BillingMode = BillingMode.PAY_PER_REQUEST,
+            RemovalPolicy = RemovalPolicy.RETAIN,
+        });
+
+        var connectionsCode = Code.FromAsset(ConnectionsProjectPath, new AssetOptions
+        {
+            Bundling = new BundlingOptions
+            {
+                Image = Runtime.DOTNET_10.BundlingImage,
+                Local = new DotNetBundler(ConnectionsProjectPath),
+            },
+        });
+
+        var connectionsEnvironment = new Dictionary<string, string>
+        {
+            ["TABLE_NAME"] = connectionsTable.TableName,
+            ["TRUSTED_ACCOUNT_ID"] = Account,
+        };
+
+        var connectionsFunction = new Function(this, "ConnectionsFunction", new FunctionProps
+        {
+            Runtime = Runtime.DOTNET_10,
+            Handler = $"{ConnectionsHandlerPrefix}.ConnectionsHandler::Handle",
+            Code = connectionsCode,
+            Environment = connectionsEnvironment,
+            MemorySize = 512,
+            Timeout = Duration.Seconds(15),
+            LogGroup = new LogGroup(this, "ConnectionsFunctionLogGroup", new LogGroupProps
+            {
+                Retention = RetentionDays.ONE_MONTH,
+            }),
+        });
+
+        var verificationFunction = new Function(this, "VerificationFunction", new FunctionProps
+        {
+            Runtime = Runtime.DOTNET_10,
+            Handler = $"{ConnectionsHandlerPrefix}.VerificationHandler::Handle",
+            Code = connectionsCode,
+            Environment = connectionsEnvironment,
+            MemorySize = 512,
+            Timeout = Duration.Seconds(15),
+            LogGroup = new LogGroup(this, "VerificationFunctionLogGroup", new LogGroupProps
+            {
+                Retention = RetentionDays.ONE_MONTH,
+            }),
+        });
+
+        connectionsTable.GrantReadWriteData(connectionsFunction);
+        connectionsTable.GrantReadWriteData(verificationFunction);
+
+        verificationFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
+        {
+            Actions = ["sts:AssumeRole"],
+            Resources = ["arn:aws:iam::*:role/cloud-spend-guard-auditor"],
+        }));
+
         var api = new HttpApi(this, "CloudSpendGuardApi");
+
+        ((CfnStage)api.DefaultStage!.Node.DefaultChild!).DefaultRouteSettings = new CfnStage.RouteSettingsProperty
+        {
+            ThrottlingRateLimit = 5,
+            ThrottlingBurstLimit = 10,
+        };
 
         api.AddRoutes(new AddRoutesOptions
         {
             Path = "/audits",
             Methods = [HttpMethod.GET],
             Integration = new HttpLambdaIntegration("AuditsIntegration", auditsFunction),
+        });
+
+        var connectionsIntegration = new HttpLambdaIntegration("ConnectionsIntegration", connectionsFunction);
+
+        api.AddRoutes(new AddRoutesOptions
+        {
+            Path = "/connections",
+            Methods = [HttpMethod.POST],
+            Integration = connectionsIntegration,
+        });
+
+        api.AddRoutes(new AddRoutesOptions
+        {
+            Path = "/connections/{id}",
+            Methods = [HttpMethod.GET],
+            Integration = connectionsIntegration,
+        });
+
+        api.AddRoutes(new AddRoutesOptions
+        {
+            Path = "/connections/{id}/verifications",
+            Methods = [HttpMethod.POST],
+            Integration = new HttpLambdaIntegration("VerificationIntegration", verificationFunction),
         });
 
         var domainName = props.HostedZone.ZoneName;
@@ -101,6 +194,16 @@ public class CloudSpendGuardStack : Stack
             }),
         };
 
+        var apiBehavior = new BehaviorOptions
+        {
+            Origin = new HttpOrigin(Fn.Select(2, Fn.Split("/", api.Url!))),
+            ViewerProtocolPolicy = ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            AllowedMethods = AllowedMethods.ALLOW_ALL,
+            CachePolicy = CachePolicy.CACHING_DISABLED,
+            OriginRequestPolicy = OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            FunctionAssociations = [redirectToApex],
+        };
+
         var distribution = new Distribution(this, "SiteDistribution", new DistributionProps
         {
             DefaultBehavior = new BehaviorOptions
@@ -111,15 +214,8 @@ public class CloudSpendGuardStack : Stack
             },
             AdditionalBehaviors = new Dictionary<string, IBehaviorOptions>
             {
-                ["/audits*"] = new BehaviorOptions
-                {
-                    Origin = new HttpOrigin(Fn.Select(2, Fn.Split("/", api.Url!))),
-                    ViewerProtocolPolicy = ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-                    AllowedMethods = AllowedMethods.ALLOW_ALL,
-                    CachePolicy = CachePolicy.CACHING_DISABLED,
-                    OriginRequestPolicy = OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-                    FunctionAssociations = [redirectToApex],
-                },
+                ["/audits*"] = apiBehavior,
+                ["/connections*"] = apiBehavior,
             },
             DefaultRootObject = "index.html",
             DomainNames = [domainName, wwwDomainName],
