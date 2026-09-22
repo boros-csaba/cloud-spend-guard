@@ -194,6 +194,34 @@ public class CloudSpendGuardStack : Stack
             }),
         };
 
+        var serveSite = new FunctionAssociation
+        {
+            EventType = FunctionEventType.VIEWER_REQUEST,
+            Function = new CloudFrontFunction(this, "ServeSite", new CloudFrontFunctionProps
+            {
+                Runtime = FunctionRuntime.JS_2_0,
+                Code = FunctionCode.FromInline($$"""
+                    function handler(event) {
+                      var request = event.request;
+
+                      if (request.headers.host.value === '{{wwwDomainName}}') {
+                        return {
+                          statusCode: 301,
+                          statusDescription: 'Moved Permanently',
+                          headers: { location: { value: 'https://{{domainName}}' + request.uri } },
+                        };
+                      }
+
+                      if (!request.uri.split('/').pop().includes('.')) {
+                        request.uri = '/index.html';
+                      }
+
+                      return request;
+                    }
+                    """),
+            }),
+        };
+
         var apiBehavior = new BehaviorOptions
         {
             Origin = new HttpOrigin(Fn.Select(2, Fn.Split("/", api.Url!))),
@@ -210,7 +238,7 @@ public class CloudSpendGuardStack : Stack
             {
                 Origin = S3BucketOrigin.WithOriginAccessControl(siteBucket),
                 ViewerProtocolPolicy = ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-                FunctionAssociations = [redirectToApex],
+                FunctionAssociations = [serveSite],
             },
             AdditionalBehaviors = new Dictionary<string, IBehaviorOptions>
             {
