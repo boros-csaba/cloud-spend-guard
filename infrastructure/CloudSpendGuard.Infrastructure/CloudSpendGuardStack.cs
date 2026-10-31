@@ -3,6 +3,7 @@ using Amazon.CDK.AWS.Apigatewayv2;
 using Amazon.CDK.AWS.CertificateManager;
 using Amazon.CDK.AWS.CloudFront;
 using Amazon.CDK.AWS.CloudFront.Origins;
+using Amazon.CDK.AWS.Cognito;
 using Amazon.CDK.AWS.DynamoDB;
 using Amazon.CDK.AWS.IAM;
 using Amazon.CDK.AWS.Lambda;
@@ -35,6 +36,7 @@ public class CloudSpendGuardStack : Stack
     private const string ConnectionsProjectPath = "../apps/functions/ConnectionsFunction";
     private const string ConnectionsHandlerPrefix = "CloudSpendGuard.Functions.Connections::CloudSpendGuard.Functions.Connections";
     private const string WebProjectPath = "../apps/web";
+    private const string GoogleOAuthSecretName = "cloud-spend-guard/google-oauth";
 
     public CloudSpendGuardStack(Construct scope, string id, CloudSpendGuardStackProps props)
         : base(scope, id, props)
@@ -251,6 +253,59 @@ public class CloudSpendGuardStack : Stack
             PriceClass = PriceClass.PRICE_CLASS_100,
         });
 
+        var userPool = new UserPool(this, "UserPool", new UserPoolProps
+        {
+            SelfSignUpEnabled = true,
+            SignInAliases = new SignInAliases { Email = true },
+            AutoVerify = new AutoVerifiedAttrs { Email = true },
+            AccountRecovery = AccountRecovery.EMAIL_ONLY,
+            FeaturePlan = FeaturePlan.ESSENTIALS,
+            DeletionProtection = true,
+            RemovalPolicy = RemovalPolicy.RETAIN,
+        });
+
+        var googleProvider = new UserPoolIdentityProviderGoogle(this, "GoogleIdentityProvider", new UserPoolIdentityProviderGoogleProps
+        {
+            UserPool = userPool,
+            ClientId = SecretValue.SecretsManager(GoogleOAuthSecretName, new SecretsManagerSecretOptions { JsonField = "clientId" }).UnsafeUnwrap(),
+            ClientSecretValue = SecretValue.SecretsManager(GoogleOAuthSecretName, new SecretsManagerSecretOptions { JsonField = "clientSecret" }),
+            Scopes = ["openid", "email", "profile"],
+            AttributeMapping = new AttributeMapping
+            {
+                Email = ProviderAttribute.GOOGLE_EMAIL,
+                EmailVerified = ProviderAttribute.GOOGLE_EMAIL_VERIFIED,
+            },
+        });
+
+        var authRedirectUrls = new[] { $"https://{domainName}", "http://localhost:5173" };
+
+        var userPoolClient = userPool.AddClient("WebClient", new UserPoolClientOptions
+        {
+            SupportedIdentityProviders = [UserPoolClientIdentityProvider.COGNITO, UserPoolClientIdentityProvider.GOOGLE],
+            OAuth = new OAuthSettings
+            {
+                Flows = new OAuthFlows { AuthorizationCodeGrant = true },
+                Scopes = [OAuthScope.OPENID, OAuthScope.EMAIL, OAuthScope.PROFILE],
+                CallbackUrls = authRedirectUrls,
+                LogoutUrls = authRedirectUrls,
+            },
+        });
+
+        userPoolClient.Node.AddDependency(googleProvider);
+
+        var userPoolDomain = userPool.AddDomain("UserPoolDomain", new UserPoolDomainOptions
+        {
+            CognitoDomain = new CognitoDomainOptions { DomainPrefix = "cloudspendguard" },
+            ManagedLoginVersion = ManagedLoginVersion.NEWER_MANAGED_LOGIN,
+        });
+
+        new CfnManagedLoginBranding(this, "ManagedLoginBranding", new CfnManagedLoginBrandingProps
+        {
+            UserPoolId = userPool.UserPoolId,
+            ClientId = userPoolClient.UserPoolClientId,
+            UseCognitoProvidedValues = true,
+        });
+
         new BucketDeployment(this, "SiteDeployment", new BucketDeploymentProps
         {
             Sources = [Source.Asset(WebProjectPath, new AssetOptions
@@ -260,6 +315,11 @@ public class CloudSpendGuardStack : Stack
                     Image = DockerImage.FromRegistry("public.ecr.aws/docker/library/node:24"),
                     Local = new ViteBundler(WebProjectPath),
                 },
+            }), Source.JsonData("config.json", new Dictionary<string, object>
+            {
+                ["authority"] = userPool.UserPoolProviderUrl,
+                ["clientId"] = userPoolClient.UserPoolClientId,
+                ["loginDomain"] = userPoolDomain.BaseUrl(),
             })],
             DestinationBucket = siteBucket,
             Distribution = distribution,
