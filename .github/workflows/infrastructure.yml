@@ -62,4 +62,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
-      - run: cdk deploy --all --require-approval never
+      - run: cdk deploy --all --require-approval never --parameters "CloudSpendGuardStack:GoogleClientId=$GOOGLE_CLIENT_ID" --parameters "CloudSpendGuardStack:GoogleClientSecret=$GOOGLE_CLIENT_SECRET"
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}

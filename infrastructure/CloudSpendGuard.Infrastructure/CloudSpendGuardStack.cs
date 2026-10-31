@@ -36,7 +36,6 @@ public class CloudSpendGuardStack : Stack
     private const string ConnectionsProjectPath = "../apps/functions/ConnectionsFunction";
     private const string ConnectionsHandlerPrefix = "CloudSpendGuard.Functions.Connections::CloudSpendGuard.Functions.Connections";
     private const string WebProjectPath = "../apps/web";
-    private const string GoogleOAuthSecretName = "cloud-spend-guard/google-oauth";
 
     public CloudSpendGuardStack(Construct scope, string id, CloudSpendGuardStackProps props)
         : base(scope, id, props)
@@ -264,11 +263,14 @@ public class CloudSpendGuardStack : Stack
             RemovalPolicy = RemovalPolicy.RETAIN,
         });
 
+        var googleClientId = new CfnParameter(this, "GoogleClientId");
+        var googleClientSecret = new CfnParameter(this, "GoogleClientSecret", new CfnParameterProps { NoEcho = true });
+
         var googleProvider = new UserPoolIdentityProviderGoogle(this, "GoogleIdentityProvider", new UserPoolIdentityProviderGoogleProps
         {
             UserPool = userPool,
-            ClientId = SecretValue.SecretsManager(GoogleOAuthSecretName, new SecretsManagerSecretOptions { JsonField = "clientId" }).UnsafeUnwrap(),
-            ClientSecretValue = SecretValue.SecretsManager(GoogleOAuthSecretName, new SecretsManagerSecretOptions { JsonField = "clientSecret" }),
+            ClientId = googleClientId.ValueAsString,
+            ClientSecretValue = SecretValue.CfnParameter(googleClientSecret),
             Scopes = ["openid", "email", "profile"],
             AttributeMapping = new AttributeMapping
             {
