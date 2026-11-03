@@ -1,32 +1,16 @@
-import { useAuth } from 'react-oidc-context'
+import { Stack, Title } from '@mantine/core'
+import { EmptyState } from '../EmptyState.tsx'
 
-export function Home({ logoutUrl }: { logoutUrl: string }) {
-  const auth = useAuth()
-
-  if (auth.isLoading) {
-    return null
-  }
-
-  if (auth.isAuthenticated) {
-    return (
-      <>
-        <p>signed in as {auth.user?.profile.email}</p>
-        <button
-          onClick={async () => {
-            await auth.removeUser()
-            window.location.href = logoutUrl
-          }}
-        >
-          Sign out
-        </button>
-      </>
-    )
-  }
-
+export function Home() {
   return (
-    <>
-      {auth.error && <p>{auth.error.message}</p>}
-      <button onClick={() => auth.signinRedirect()}>Get started</button>
-    </>
+    <Stack>
+      <Title order={2}>Home</Title>
+      <EmptyState
+        title="Connect your AWS account"
+        description="Cloud Spend Guard needs a Connection before it can discover your resources and their cost."
+        action="Connect AWS account"
+        to="/connections/new"
+      />
+    </Stack>
   )
 }

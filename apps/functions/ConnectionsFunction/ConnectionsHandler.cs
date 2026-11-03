@@ -13,7 +13,7 @@ public class ConnectionsHandler
 
     public async Task<APIGatewayHttpApiV2ProxyResponse> Handle(APIGatewayHttpApiV2ProxyRequest request)
     {
-        if (request.RouteKey == "POST /connections")
+        if (request.RouteKey == "POST /api/connections")
         {
             var connection = new Connection(
                 Guid.NewGuid().ToString(),

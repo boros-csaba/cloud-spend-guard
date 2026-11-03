@@ -127,7 +127,7 @@ public class CloudSpendGuardStack : Stack
 
         api.AddRoutes(new AddRoutesOptions
         {
-            Path = "/audits",
+            Path = "/api/audits",
             Methods = [HttpMethod.GET],
             Integration = new HttpLambdaIntegration("AuditsIntegration", auditsFunction),
         });
@@ -136,21 +136,21 @@ public class CloudSpendGuardStack : Stack
 
         api.AddRoutes(new AddRoutesOptions
         {
-            Path = "/connections",
+            Path = "/api/connections",
             Methods = [HttpMethod.POST],
             Integration = connectionsIntegration,
         });
 
         api.AddRoutes(new AddRoutesOptions
         {
-            Path = "/connections/{id}",
+            Path = "/api/connections/{id}",
             Methods = [HttpMethod.GET],
             Integration = connectionsIntegration,
         });
 
         api.AddRoutes(new AddRoutesOptions
         {
-            Path = "/connections/{id}/verifications",
+            Path = "/api/connections/{id}/verifications",
             Methods = [HttpMethod.POST],
             Integration = new HttpLambdaIntegration("VerificationIntegration", verificationFunction),
         });
@@ -243,8 +243,7 @@ public class CloudSpendGuardStack : Stack
             },
             AdditionalBehaviors = new Dictionary<string, IBehaviorOptions>
             {
-                ["/audits*"] = apiBehavior,
-                ["/connections*"] = apiBehavior,
+                ["/api/*"] = apiBehavior,
             },
             DefaultRootObject = "index.html",
             DomainNames = [domainName, wwwDomainName],
@@ -276,6 +275,8 @@ public class CloudSpendGuardStack : Stack
             {
                 Email = ProviderAttribute.GOOGLE_EMAIL,
                 EmailVerified = ProviderAttribute.GOOGLE_EMAIL_VERIFIED,
+                Fullname = ProviderAttribute.GOOGLE_NAME,
+                ProfilePicture = ProviderAttribute.GOOGLE_PICTURE,
             },
         });
 
@@ -287,7 +288,7 @@ public class CloudSpendGuardStack : Stack
             OAuth = new OAuthSettings
             {
                 Flows = new OAuthFlows { AuthorizationCodeGrant = true },
-                Scopes = [OAuthScope.OPENID, OAuthScope.EMAIL, OAuthScope.PROFILE],
+                Scopes = [OAuthScope.OPENID, OAuthScope.EMAIL, OAuthScope.PROFILE, OAuthScope.COGNITO_ADMIN],
                 CallbackUrls = authRedirectUrls,
                 LogoutUrls = authRedirectUrls,
             },
