@@ -12,6 +12,7 @@ using Amazon.CDK.AWS.Route53;
 using Amazon.CDK.AWS.Route53.Targets;
 using Amazon.CDK.AWS.S3;
 using Amazon.CDK.AWS.S3.Deployment;
+using Amazon.CDK.AwsApigatewayv2Authorizers;
 using Amazon.CDK.AwsApigatewayv2Integrations;
 using Constructs;
 using Attribute = Amazon.CDK.AWS.DynamoDB.Attribute;
@@ -36,6 +37,8 @@ public class CloudSpendGuardStack : Stack
     private const string ConnectionsProjectPath = "../apps/functions/ConnectionsFunction";
     private const string ConnectionsHandlerPrefix = "CloudSpendGuard.Functions.Connections::CloudSpendGuard.Functions.Connections";
     private const string WebProjectPath = "../apps/web";
+    private const string TemplatesPath = "templates";
+    private const string TemplateVersion = "1";
 
     public CloudSpendGuardStack(Construct scope, string id, CloudSpendGuardStackProps props)
         : base(scope, id, props)
@@ -58,11 +61,28 @@ public class CloudSpendGuardStack : Stack
             }),
         });
 
-        var connectionsTable = new Table(this, "ConnectionsTable", new TableProps
+        var workspacesTable = new Table(this, "WorkspacesTable", new TableProps
         {
-            PartitionKey = new Attribute { Name = "id", Type = AttributeType.STRING },
+            PartitionKey = new Attribute { Name = "pk", Type = AttributeType.STRING },
+            SortKey = new Attribute { Name = "sk", Type = AttributeType.STRING },
             BillingMode = BillingMode.PAY_PER_REQUEST,
             RemovalPolicy = RemovalPolicy.RETAIN,
+        });
+
+        var templatesBucket = new Bucket(this, "TemplatesBucket", new BucketProps
+        {
+            PublicReadAccess = true,
+            BlockPublicAccess = BlockPublicAccess.BLOCK_ACLS_ONLY,
+            RemovalPolicy = RemovalPolicy.DESTROY,
+            AutoDeleteObjects = true,
+        });
+
+        new BucketDeployment(this, "TemplatesDeployment", new BucketDeploymentProps
+        {
+            Sources = [Source.Asset(TemplatesPath)],
+            DestinationBucket = templatesBucket,
+            DestinationKeyPrefix = $"v{TemplateVersion}/",
+            Prune = false,
         });
 
         var connectionsCode = Code.FromAsset(ConnectionsProjectPath, new AssetOptions
@@ -76,8 +96,9 @@ public class CloudSpendGuardStack : Stack
 
         var connectionsEnvironment = new Dictionary<string, string>
         {
-            ["TABLE_NAME"] = connectionsTable.TableName,
+            ["TABLE_NAME"] = workspacesTable.TableName,
             ["TRUSTED_ACCOUNT_ID"] = Account,
+            ["TEMPLATE_URL"] = $"https://{templatesBucket.BucketRegionalDomainName}/v{TemplateVersion}/connection-standalone.yaml",
         };
 
         var connectionsFunction = new Function(this, "ConnectionsFunction", new FunctionProps
@@ -101,20 +122,20 @@ public class CloudSpendGuardStack : Stack
             Code = connectionsCode,
             Environment = connectionsEnvironment,
             MemorySize = 512,
-            Timeout = Duration.Seconds(15),
+            Timeout = Duration.Seconds(30),
             LogGroup = new LogGroup(this, "VerificationFunctionLogGroup", new LogGroupProps
             {
                 Retention = RetentionDays.ONE_MONTH,
             }),
         });
 
-        connectionsTable.GrantReadWriteData(connectionsFunction);
-        connectionsTable.GrantReadWriteData(verificationFunction);
+        workspacesTable.GrantReadWriteData(connectionsFunction);
+        workspacesTable.GrantReadWriteData(verificationFunction);
 
         verificationFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
         {
             Actions = ["sts:AssumeRole"],
-            Resources = ["arn:aws:iam::*:role/cloud-spend-guard-auditor"],
+            Resources = ["arn:aws:iam::*:role/cloud-spend-guard-*"],
         }));
 
         var api = new HttpApi(this, "CloudSpendGuardApi");
@@ -130,29 +151,6 @@ public class CloudSpendGuardStack : Stack
             Path = "/api/audits",
             Methods = [HttpMethod.GET],
             Integration = new HttpLambdaIntegration("AuditsIntegration", auditsFunction),
-        });
-
-        var connectionsIntegration = new HttpLambdaIntegration("ConnectionsIntegration", connectionsFunction);
-
-        api.AddRoutes(new AddRoutesOptions
-        {
-            Path = "/api/connections",
-            Methods = [HttpMethod.POST],
-            Integration = connectionsIntegration,
-        });
-
-        api.AddRoutes(new AddRoutesOptions
-        {
-            Path = "/api/connections/{id}",
-            Methods = [HttpMethod.GET],
-            Integration = connectionsIntegration,
-        });
-
-        api.AddRoutes(new AddRoutesOptions
-        {
-            Path = "/api/connections/{id}/verifications",
-            Methods = [HttpMethod.POST],
-            Integration = new HttpLambdaIntegration("VerificationIntegration", verificationFunction),
         });
 
         var domainName = props.HostedZone.ZoneName;
@@ -228,7 +226,15 @@ public class CloudSpendGuardStack : Stack
             Origin = new HttpOrigin(Fn.Select(2, Fn.Split("/", api.Url!))),
             ViewerProtocolPolicy = ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             AllowedMethods = AllowedMethods.ALLOW_ALL,
-            CachePolicy = CachePolicy.CACHING_DISABLED,
+            CachePolicy = new CachePolicy(this, "ApiCachePolicy", new CachePolicyProps
+            {
+                Comment = "Forwards Authorization on GET; API responses are not cached.",
+                DefaultTtl = Duration.Seconds(0),
+                MinTtl = Duration.Seconds(0),
+                MaxTtl = Duration.Seconds(1),
+                HeaderBehavior = CacheHeaderBehavior.AllowList("Authorization"),
+                QueryStringBehavior = CacheQueryStringBehavior.All(),
+            }),
             OriginRequestPolicy = OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
             FunctionAssociations = [redirectToApex],
         };
@@ -295,6 +301,37 @@ public class CloudSpendGuardStack : Stack
         });
 
         userPoolClient.Node.AddDependency(googleProvider);
+
+        var authorizer = new HttpUserPoolAuthorizer("UserPoolAuthorizer", userPool, new HttpUserPoolAuthorizerProps
+        {
+            UserPoolClients = [userPoolClient],
+        });
+
+        var connectionsIntegration = new HttpLambdaIntegration("ConnectionsIntegration", connectionsFunction);
+
+        api.AddRoutes(new AddRoutesOptions
+        {
+            Path = "/api/connections",
+            Methods = [HttpMethod.GET, HttpMethod.POST],
+            Integration = connectionsIntegration,
+            Authorizer = authorizer,
+        });
+
+        api.AddRoutes(new AddRoutesOptions
+        {
+            Path = "/api/connections/{id}",
+            Methods = [HttpMethod.GET, HttpMethod.DELETE],
+            Integration = connectionsIntegration,
+            Authorizer = authorizer,
+        });
+
+        api.AddRoutes(new AddRoutesOptions
+        {
+            Path = "/api/connections/{id}/verifications",
+            Methods = [HttpMethod.POST],
+            Integration = new HttpLambdaIntegration("VerificationIntegration", verificationFunction),
+            Authorizer = authorizer,
+        });
 
         var userPoolDomain = userPool.AddDomain("UserPoolDomain", new UserPoolDomainOptions
         {
