@@ -56,8 +56,13 @@ export function ConnectionDetail() {
   }, [pending, verify])
 
   async function remove() {
-    await api(`/connections/${id}`, { method: 'DELETE' })
-    navigate('/connections')
+    try {
+      await api(`/connections/${id}`, { method: 'DELETE' })
+      navigate('/connections')
+    } catch (e) {
+      setError((e as Error).message)
+      setConfirmDelete(false)
+    }
   }
 
   if (!connection) {
@@ -83,6 +88,7 @@ export function ConnectionDetail() {
               </List.Item>
               <List.Item>Wait until the stack is complete, about two minutes. This page checks every 15 seconds.</List.Item>
             </List>
+            <Text size="sm" c="dimmed">If the stack fails, delete it in CloudFormation before launching it again.</Text>
             <Group>
               <Button component="a" href={connection.launchUrl} target="_blank" rel="noreferrer" rightSection={<IconExternalLink size={16} />}>
                 Launch stack
@@ -115,7 +121,7 @@ export function ConnectionDetail() {
                   </List.Item>
                 ))}
               </List>
-              <Text size="xs" c="dimmed">Last checked {new Date(connection.verification.verifiedAt).toLocaleString()}</Text>
+              <Text size="xs" c="dimmed">Last checked {new Date(connection.verification.checkedAt).toLocaleString()}</Text>
             </>
           )}
         </Stack>

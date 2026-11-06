@@ -72,13 +72,13 @@ public class ConnectionTests
     [Fact]
     public void Export_with_template_settings_has_no_problems()
     {
-        Assert.Empty(ExportSettings.Problems(NewExport("TRUE", "DAILY", "cloud-spend-guard-x"), "cloud-spend-guard-x"));
+        Assert.Empty(ExportSettings.Problems(NewExport("TRUE", "DAILY", "cloud-spend-guard-x")));
     }
 
     [Fact]
     public void Export_with_wrong_settings_lists_each_problem()
     {
-        var problems = ExportSettings.Problems(NewExport("FALSE", "HOURLY", "other-bucket"), "cloud-spend-guard-x");
+        var problems = ExportSettings.Problems(NewExport("FALSE", "HOURLY", ""));
 
         Assert.Equal(3, problems.Count);
     }

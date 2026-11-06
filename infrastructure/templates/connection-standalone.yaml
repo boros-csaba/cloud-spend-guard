@@ -29,7 +29,6 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Sub cloud-spend-guard-${ConnectionId}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -140,7 +139,6 @@ Resources:
     Properties:
       RoleName: !Sub cloud-spend-guard-${ConnectionId}
       Description: Read-only access for Cloud Spend Guard.
-      MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -195,5 +193,3 @@ Resources:
 Outputs:
   RoleArn:
     Value: !GetAtt Role.Arn
-  TemplateVersion:
-    Value: '1'

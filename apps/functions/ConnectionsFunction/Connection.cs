@@ -6,7 +6,7 @@ namespace CloudSpendGuard.Functions.Connections;
 
 public record Check(string Name, string Status, string? Message);
 
-public record Verification(string Status, IReadOnlyList<Check> Checks, DateTimeOffset VerifiedAt, DateTimeOffset? FailingSince)
+public record Verification(string Status, IReadOnlyList<Check> Checks, DateTimeOffset CheckedAt, DateTimeOffset? FailingSince)
 {
     public static Verification From(IReadOnlyList<Check> checks, Verification? previous, DateTimeOffset now)
     {

@@ -16,7 +16,7 @@ export type Connection = {
   verification: {
     status: 'verified' | 'failed'
     checks: Check[]
-    verifiedAt: string
+    checkedAt: string
     failingSince: string | null
   } | null
   launchUrl: string

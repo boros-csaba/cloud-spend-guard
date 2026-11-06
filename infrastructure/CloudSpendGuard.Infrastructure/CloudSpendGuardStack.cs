@@ -38,6 +38,7 @@ public class CloudSpendGuardStack : Stack
     private const string ConnectionsHandlerPrefix = "CloudSpendGuard.Functions.Connections::CloudSpendGuard.Functions.Connections";
     private const string WebProjectPath = "../apps/web";
     private const string TemplatesPath = "templates";
+    // Bump on every change to a template: each version is kept under its own prefix for existing customers.
     private const string TemplateVersion = "1";
 
     public CloudSpendGuardStack(Construct scope, string id, CloudSpendGuardStackProps props)

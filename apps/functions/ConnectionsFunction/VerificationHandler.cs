@@ -137,7 +137,7 @@ public class VerificationHandler
             }
 
             var export = (await dataExports.GetExportAsync(new GetExportRequest { ExportArn = reference.ExportArn })).Export;
-            var problems = ExportSettings.Problems(export, name);
+            var problems = ExportSettings.Problems(export);
 
             if (problems.Count > 0)
             {
@@ -145,7 +145,11 @@ public class VerificationHandler
             }
 
             using var s3 = new AmazonS3Client(credentials, RegionEndpoint.USEast1);
-            await s3.ListObjectsV2Async(new ListObjectsV2Request { BucketName = name, MaxKeys = 1 });
+            await s3.ListObjectsV2Async(new ListObjectsV2Request
+            {
+                BucketName = export.DestinationConfigurations.S3Destination.S3Bucket,
+                MaxKeys = 1,
+            });
 
             return new Check("costExport", "ok", null);
         }
@@ -181,7 +185,7 @@ public class VerificationHandler
 
 public static class ExportSettings
 {
-    public static IReadOnlyList<string> Problems(Export export, string bucketName)
+    public static IReadOnlyList<string> Problems(Export export)
     {
         var problems = new List<string>();
         var table = export.DataQuery?.TableConfigurations?.GetValueOrDefault("COST_AND_USAGE_REPORT");
@@ -196,9 +200,9 @@ public static class ExportSettings
             problems.Add("Time granularity is not daily.");
         }
 
-        if (export.DestinationConfigurations?.S3Destination?.S3Bucket != bucketName)
+        if (string.IsNullOrEmpty(export.DestinationConfigurations?.S3Destination?.S3Bucket))
         {
-            problems.Add($"It is not delivered to bucket {bucketName}.");
+            problems.Add("It has no S3 destination.");
         }
 
         return problems;
