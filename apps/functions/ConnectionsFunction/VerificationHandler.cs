@@ -125,7 +125,7 @@ public class VerificationHandler
 
             return missing.Count == 0
                 ? new Check("permissions", "ok", null)
-                : new Check("permissions", "failed", $"The role is missing: {string.Join(", ", missing)}.");
+                : new Check("permissions", "warning", $"The role is missing: {string.Join(", ", missing)}. Resources that need them are not scanned.");
         }
         catch (AmazonIdentityManagementServiceException)
         {
