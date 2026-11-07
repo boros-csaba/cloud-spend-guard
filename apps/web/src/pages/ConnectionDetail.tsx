@@ -107,7 +107,9 @@ export function ConnectionDetail() {
         <Stack>
           <Group justify="space-between">
             <Title order={4}>Verification</Title>
-            <Button variant="default" size="xs" onClick={verify} loading={verifying}>Verify now</Button>
+            {connection.state !== 'working' && (
+              <Button variant="default" size="xs" onClick={verify} loading={verifying}>Verify now</Button>
+            )}
           </Group>
           {error && <Alert color="red">{error}</Alert>}
           {!connection.verification && <Text c="dimmed">Not verified yet.</Text>}

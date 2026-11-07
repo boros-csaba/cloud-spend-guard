@@ -29,31 +29,42 @@ public class VerificationHandler
             return Http.Error(404, "Connection not found.");
         }
 
+        var wasWorking = connection.State == "working";
         var checks = await Verify(connection);
         connection = connection with { Verification = Verification.From(checks, connection.Verification, DateTimeOffset.UtcNow) };
 
         await _store.Save(connection);
 
+        if (!wasWorking && connection.State == "working")
+        {
+            await new SnapshotStore().Start(connection);
+        }
+
         return Http.Json(200, Http.Body(connection));
     }
 
-    private async Task<IReadOnlyList<Check>> Verify(Connection connection)
+    public async Task<AWSCredentials> AssumeRole(Connection connection, string sessionName)
+    {
+        var assumed = await _sts.AssumeRoleAsync(new AssumeRoleRequest
+        {
+            RoleArn = ConnectionTemplate.RoleArn(connection.AccountId, connection.Id),
+            RoleSessionName = sessionName,
+            ExternalId = connection.ExternalId,
+            DurationSeconds = 900,
+        });
+
+        return new SessionAWSCredentials(
+            assumed.Credentials.AccessKeyId, assumed.Credentials.SecretAccessKey, assumed.Credentials.SessionToken);
+    }
+
+    public async Task<IReadOnlyList<Check>> Verify(Connection connection)
     {
         var roleArn = ConnectionTemplate.RoleArn(connection.AccountId, connection.Id);
         AWSCredentials credentials;
 
         try
         {
-            var assumed = await _sts.AssumeRoleAsync(new AssumeRoleRequest
-            {
-                RoleArn = roleArn,
-                RoleSessionName = "cloud-spend-guard-verification",
-                ExternalId = connection.ExternalId,
-                DurationSeconds = 900,
-            });
-
-            credentials = new SessionAWSCredentials(
-                assumed.Credentials.AccessKeyId, assumed.Credentials.SecretAccessKey, assumed.Credentials.SessionToken);
+            credentials = await AssumeRole(connection, "cloud-spend-guard-verification");
         }
         catch (AmazonSecurityTokenServiceException)
         {

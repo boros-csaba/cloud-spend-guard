@@ -6,6 +6,7 @@ public static class ConnectionTemplate
 
     public static readonly string[] RequiredPermissions =
     [
+        "ec2:DescribeRegions",
         "ec2:DescribeInstances",
         "ec2:DescribeVolumes",
         "rds:DescribeDBInstances",

@@ -23,6 +23,39 @@ export type Connection = {
   templateUrl: string
 }
 
+export type Resource = {
+  arn: string
+  type: 'ec2:volume'
+  region: string
+  name: string | null
+  details: Record<string, string>
+  tags: Record<string, string>
+  firstSeen: string
+  idle: { reason: 'unattached', since: string } | null
+  deletedAt: string | null
+}
+
+export type Run = {
+  status: 'running' | 'done' | 'failed'
+  startedAt: string
+  finishedAt: string | null
+  message: string | null
+  resourceCount: number | null
+  idleCount: number | null
+}
+
+export type CloudAccount = {
+  connectionId: string
+  accountId: string
+  connectionState: Connection['state']
+  run: Run | null
+  snapshot: {
+    takenAt: string
+    regions: { region: string, status: 'scanned' | 'skipped' | 'failed', message: string | null }[]
+    resources: Resource[]
+  } | null
+}
+
 export function useApi() {
   const token = useAuth().user?.access_token
 

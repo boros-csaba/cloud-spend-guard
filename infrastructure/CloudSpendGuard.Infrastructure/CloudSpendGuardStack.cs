@@ -95,11 +95,49 @@ public class CloudSpendGuardStack : Stack
             },
         });
 
+        var snapshotsBucket = new Bucket(this, "SnapshotsBucket", new BucketProps
+        {
+            BlockPublicAccess = BlockPublicAccess.BLOCK_ALL,
+            EnforceSSL = true,
+            RemovalPolicy = RemovalPolicy.RETAIN,
+        });
+
+        var assumeConnectionRole = new PolicyStatement(new PolicyStatementProps
+        {
+            Actions = ["sts:AssumeRole"],
+            Resources = ["arn:aws:iam::*:role/cloud-spend-guard-*"],
+        });
+
+        var snapshotRunnerFunction = new Function(this, "SnapshotRunnerFunction", new FunctionProps
+        {
+            Runtime = Runtime.DOTNET_10,
+            Handler = $"{ConnectionsHandlerPrefix}.SnapshotRunner::Run",
+            Code = connectionsCode,
+            Environment = new Dictionary<string, string>
+            {
+                ["TABLE_NAME"] = workspacesTable.TableName,
+                ["SNAPSHOTS_BUCKET"] = snapshotsBucket.BucketName,
+            },
+            MemorySize = 1024,
+            Timeout = Duration.Minutes(5),
+            RetryAttempts = 0,
+            LogGroup = new LogGroup(this, "SnapshotRunnerFunctionLogGroup", new LogGroupProps
+            {
+                Retention = RetentionDays.ONE_MONTH,
+            }),
+        });
+
+        workspacesTable.GrantReadWriteData(snapshotRunnerFunction);
+        snapshotsBucket.GrantReadWrite(snapshotRunnerFunction);
+        snapshotRunnerFunction.AddToRolePolicy(assumeConnectionRole);
+
         var connectionsEnvironment = new Dictionary<string, string>
         {
             ["TABLE_NAME"] = workspacesTable.TableName,
             ["TRUSTED_ACCOUNT_ID"] = Account,
             ["TEMPLATE_URL"] = $"https://{templatesBucket.BucketRegionalDomainName}/v{TemplateVersion}/connection-standalone.yaml",
+            ["SNAPSHOTS_BUCKET"] = snapshotsBucket.BucketName,
+            ["SNAPSHOT_RUNNER_FUNCTION"] = snapshotRunnerFunction.FunctionName,
         };
 
         var connectionsFunction = new Function(this, "ConnectionsFunction", new FunctionProps
@@ -130,14 +168,28 @@ public class CloudSpendGuardStack : Stack
             }),
         });
 
+        var snapshotsFunction = new Function(this, "SnapshotsFunction", new FunctionProps
+        {
+            Runtime = Runtime.DOTNET_10,
+            Handler = $"{ConnectionsHandlerPrefix}.SnapshotsHandler::Handle",
+            Code = connectionsCode,
+            Environment = connectionsEnvironment,
+            MemorySize = 512,
+            Timeout = Duration.Seconds(15),
+            LogGroup = new LogGroup(this, "SnapshotsFunctionLogGroup", new LogGroupProps
+            {
+                Retention = RetentionDays.ONE_MONTH,
+            }),
+        });
+
         workspacesTable.GrantReadWriteData(connectionsFunction);
         workspacesTable.GrantReadWriteData(verificationFunction);
+        workspacesTable.GrantReadWriteData(snapshotsFunction);
+        snapshotsBucket.GrantRead(snapshotsFunction);
+        snapshotRunnerFunction.GrantInvoke(verificationFunction);
+        snapshotRunnerFunction.GrantInvoke(snapshotsFunction);
 
-        verificationFunction.AddToRolePolicy(new PolicyStatement(new PolicyStatementProps
-        {
-            Actions = ["sts:AssumeRole"],
-            Resources = ["arn:aws:iam::*:role/cloud-spend-guard-*"],
-        }));
+        verificationFunction.AddToRolePolicy(assumeConnectionRole);
 
         var api = new HttpApi(this, "CloudSpendGuardApi");
 
@@ -331,6 +383,24 @@ public class CloudSpendGuardStack : Stack
             Path = "/api/connections/{id}/verifications",
             Methods = [HttpMethod.POST],
             Integration = new HttpLambdaIntegration("VerificationIntegration", verificationFunction),
+            Authorizer = authorizer,
+        });
+
+        var snapshotsIntegration = new HttpLambdaIntegration("SnapshotsIntegration", snapshotsFunction);
+
+        api.AddRoutes(new AddRoutesOptions
+        {
+            Path = "/api/connections/{id}/snapshots",
+            Methods = [HttpMethod.POST],
+            Integration = snapshotsIntegration,
+            Authorizer = authorizer,
+        });
+
+        api.AddRoutes(new AddRoutesOptions
+        {
+            Path = "/api/snapshots",
+            Methods = [HttpMethod.GET],
+            Integration = snapshotsIntegration,
             Authorizer = authorizer,
         });
 

@@ -15,7 +15,9 @@
     <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="3.0.1" />
     <PackageReference Include="AWSSDK.BCMDataExports" Version="4.0.101.16" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.103.8" />
+    <PackageReference Include="AWSSDK.EC2" Version="4.0.132.2" />
     <PackageReference Include="AWSSDK.IdentityManagement" Version="4.0.103.6" />
+    <PackageReference Include="AWSSDK.Lambda" Version="4.0.111.3" />
     <PackageReference Include="AWSSDK.Organizations" Version="4.0.103.5" />
     <PackageReference Include="AWSSDK.S3" Version="4.0.104.10" />
     <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.101" />
