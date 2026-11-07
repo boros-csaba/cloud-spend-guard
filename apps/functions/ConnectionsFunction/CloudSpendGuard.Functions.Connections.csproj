@@ -13,14 +13,28 @@
     <PackageReference Include="Amazon.Lambda.APIGatewayEvents" Version="3.0.1" />
     <PackageReference Include="Amazon.Lambda.Core" Version="3.3.0" />
     <PackageReference Include="Amazon.Lambda.Serialization.SystemTextJson" Version="3.0.1" />
+    <PackageReference Include="AWSSDK.APIGateway" Version="4.0.101.10" />
+    <PackageReference Include="AWSSDK.ApiGatewayV2" Version="4.0.100.25" />
+    <PackageReference Include="AWSSDK.AutoScaling" Version="4.0.106" />
     <PackageReference Include="AWSSDK.BCMDataExports" Version="4.0.101.16" />
+    <PackageReference Include="AWSSDK.CloudFormation" Version="4.0.103.8" />
+    <PackageReference Include="AWSSDK.CloudFront" Version="4.0.103.6" />
+    <PackageReference Include="AWSSDK.CloudWatchLogs" Version="4.0.108.1" />
+    <PackageReference Include="AWSSDK.CognitoIdentityProvider" Version="4.0.106.9" />
     <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.103.8" />
     <PackageReference Include="AWSSDK.EC2" Version="4.0.132.2" />
+    <PackageReference Include="AWSSDK.ECR" Version="4.0.102.3" />
+    <PackageReference Include="AWSSDK.ECS" Version="4.0.110.2" />
+    <PackageReference Include="AWSSDK.ElasticLoadBalancing" Version="4.0.100.24" />
+    <PackageReference Include="AWSSDK.ElasticLoadBalancingV2" Version="4.0.101.21" />
     <PackageReference Include="AWSSDK.IdentityManagement" Version="4.0.103.6" />
     <PackageReference Include="AWSSDK.Lambda" Version="4.0.111.3" />
     <PackageReference Include="AWSSDK.Organizations" Version="4.0.103.5" />
+    <PackageReference Include="AWSSDK.RDS" Version="4.0.108.2" />
+    <PackageReference Include="AWSSDK.Route53" Version="4.0.100.24" />
     <PackageReference Include="AWSSDK.S3" Version="4.0.104.10" />
     <PackageReference Include="AWSSDK.SecurityToken" Version="4.0.101" />
+    <PackageReference Include="AWSSDK.StepFunctions" Version="4.0.101.4" />
   </ItemGroup>
 
 </Project>

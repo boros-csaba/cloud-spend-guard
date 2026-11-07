@@ -81,7 +81,8 @@ public class VerificationHandler
         [
             new Check("role", "ok", null),
             await CheckPermissions(credentials, roleArn),
-            await CheckCostExport(credentials, connection.Id),
+            await CheckCostExport(credentials, connection.Id,
+                connection.Verification?.Checks.Any(check => check is { Name: "costExport", Status: "ok" }) == true),
             await CheckAccountType(credentials, connection.AccountId),
         ];
     }
@@ -132,7 +133,7 @@ public class VerificationHandler
         }
     }
 
-    private static async Task<Check> CheckCostExport(AWSCredentials credentials, string connectionId)
+    private static async Task<Check> CheckCostExport(AWSCredentials credentials, string connectionId, bool passedBefore)
     {
         var name = ConnectionTemplate.Name(connectionId);
 
@@ -155,12 +156,15 @@ public class VerificationHandler
                 return new Check("costExport", "failed", string.Join(" ", problems));
             }
 
-            using var s3 = new AmazonS3Client(credentials, RegionEndpoint.USEast1);
-            await s3.ListObjectsV2Async(new ListObjectsV2Request
+            if (!passedBefore)
             {
-                BucketName = export.DestinationConfigurations.S3Destination.S3Bucket,
-                MaxKeys = 1,
-            });
+                using var s3 = new AmazonS3Client(credentials, RegionEndpoint.USEast1);
+                await s3.ListObjectsV2Async(new ListObjectsV2Request
+                {
+                    BucketName = export.DestinationConfigurations.S3Destination.S3Bucket,
+                    MaxKeys = 1,
+                });
+            }
 
             return new Check("costExport", "ok", null);
         }

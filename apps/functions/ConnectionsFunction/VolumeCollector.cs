@@ -21,6 +21,7 @@ public static class VolumeCollector
                 ["volumeType"] = volume.VolumeType.Value,
                 ["sizeGiB"] = volume.Size?.ToString() ?? "",
                 ["createdAt"] = volume.CreateTime?.ToString("O") ?? "",
+                ["availabilityZone"] = volume.AvailabilityZone,
             };
 
             if (volume.Iops is not null)

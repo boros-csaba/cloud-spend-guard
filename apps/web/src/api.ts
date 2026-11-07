@@ -25,13 +25,22 @@ export type Connection = {
 
 export type Resource = {
   arn: string
-  type: 'ec2:volume'
+  type: 'ec2:vpc' | 'ec2:subnet' | 'ec2:volume' | 'ec2:instance' | 's3:bucket' | 'cloudfront:distribution'
+    | 'ec2:elastic-ip' | 'ec2:natgateway' | 'ec2:vpn-connection' | 'ec2:vpc-endpoint' | 'ec2:transit-gateway-attachment'
+    | 'elasticloadbalancing:loadbalancer' | 'elasticloadbalancing:classic-loadbalancer' | 'rds:db' | 'ec2:snapshot'
+    | 'ec2:security-group' | 'ec2:internet-gateway' | 'ec2:route-table' | 'lambda:function' | 'dynamodb:table' | 'apigateway:restapi'
+    | 'apigateway:api' | 'states:statemachine' | 'ecs:cluster' | 'ecs:service' | 'ecr:repository' | 'logs:log-group'
+    | 'cognito-idp:userpool' | 'cloudformation:stack' | 'route53:hostedzone'
   region: string
   name: string | null
   details: Record<string, string>
   tags: Record<string, string>
   firstSeen: string
-  idle: { reason: 'unattached', since: string } | null
+  idle: {
+    reason: 'unattached' | 'stopped' | 'instanceStopped' | 'unassociated' | 'noRoutes' | 'tunnelsDown' | 'noTargets' | 'noHealthyTargets'
+      | 'orphaned'
+    since: string
+  } | null
   deletedAt: string | null
 }
 
@@ -51,7 +60,7 @@ export type CloudAccount = {
   run: Run | null
   snapshot: {
     takenAt: string
-    regions: { region: string, status: 'scanned' | 'skipped' | 'failed', message: string | null }[]
+    scans: { region: string | null, type: Resource['type'], status: 'scanned' | 'skipped' | 'failed', message: string | null }[] | null
     resources: Resource[]
   } | null
 }

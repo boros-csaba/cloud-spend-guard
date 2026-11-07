@@ -8,12 +8,45 @@ using Amazon.Runtime;
 
 namespace CloudSpendGuard.Functions.Connections;
 
+public record Collector(string Type, bool Global, Func<AWSCredentials, string, string, Task<IReadOnlyList<Resource>>> Collect);
+
 public class SnapshotRunner
 {
-    private static readonly Func<AWSCredentials, string, string, Task<IReadOnlyList<Resource>>>[] Collectors =
+    private static readonly Collector[] Collectors =
     [
-        VolumeCollector.Collect,
+        new("ec2:vpc", false, NetworkCollector.CollectVpcs),
+        new("ec2:subnet", false, NetworkCollector.CollectSubnets),
+        new("ec2:volume", false, VolumeCollector.Collect),
+        new("ec2:instance", false, InstanceCollector.Collect),
+        new("s3:bucket", true, BucketCollector.Collect),
+        new("cloudfront:distribution", true, DistributionCollector.Collect),
+        new("ec2:elastic-ip", false, AddressCollector.Collect),
+        new("ec2:natgateway", false, NetworkCollector.CollectNatGateways),
+        new("ec2:vpn-connection", false, NetworkCollector.CollectVpnConnections),
+        new("ec2:vpc-endpoint", false, NetworkCollector.CollectVpcEndpoints),
+        new("ec2:transit-gateway-attachment", false, NetworkCollector.CollectTransitGatewayAttachments),
+        new("elasticloadbalancing:loadbalancer", false, LoadBalancerCollector.Collect),
+        new("elasticloadbalancing:classic-loadbalancer", false, LoadBalancerCollector.CollectClassic),
+        new("rds:db", false, DatabaseCollector.Collect),
+        new("ec2:snapshot", false, EbsSnapshotCollector.Collect),
+        new("ec2:security-group", false, NetworkCollector.CollectSecurityGroups),
+        new("ec2:internet-gateway", false, NetworkCollector.CollectInternetGateways),
+        new("ec2:route-table", false, NetworkCollector.CollectRouteTables),
+        new("lambda:function", false, FunctionCollector.Collect),
+        new("dynamodb:table", false, TableCollector.Collect),
+        new("apigateway:restapi", false, ApiCollector.CollectRest),
+        new("apigateway:api", false, ApiCollector.CollectHttpAndWebSocket),
+        new("states:statemachine", false, StateMachineCollector.Collect),
+        new("ecs:cluster", false, ContainerCollector.CollectClusters),
+        new("ecs:service", false, ContainerCollector.CollectServices),
+        new("ecr:repository", false, ContainerCollector.CollectRepositories),
+        new("logs:log-group", false, LogGroupCollector.Collect),
+        new("cognito-idp:userpool", false, UserPoolCollector.Collect),
+        new("cloudformation:stack", false, StackCollector.Collect),
+        new("route53:hostedzone", true, HostedZoneCollector.Collect),
     ];
+
+    private static readonly SemaphoreSlim ScanSlots = new(32);
 
     private readonly ConnectionStore _connections = new();
     private readonly SnapshotStore _snapshots = new();
@@ -45,12 +78,15 @@ public class SnapshotRunner
             }
 
             var credentials = await _verification.AssumeRole(connection, "cloud-spend-guard-snapshot");
-            var scans = await Task.WhenAll((await EnabledRegions(credentials)).Select(region => Scan(credentials, region, connection.AccountId)));
+            var regions = await EnabledRegions(credentials);
+            var scans = await Task.WhenAll(Collectors.SelectMany(collector => collector.Global
+                ? [Scan(credentials, collector, null, connection.AccountId)]
+                : regions.Select(region => Scan(credentials, collector, region, connection.AccountId))));
             var previous = await _snapshots.GetSnapshot(connection.WorkspaceId, connection.AccountId);
 
             var snapshot = Snapshot.Build(
                 connection.AccountId,
-                [.. scans.Select(scan => scan.Region).OrderBy(region => region.Region)],
+                [.. scans.Select(scan => scan.Scan)],
                 [.. scans.SelectMany(scan => scan.Resources)],
                 previous,
                 DateTimeOffset.UtcNow);
@@ -84,23 +120,29 @@ public class SnapshotRunner
         return [.. response.Regions.Select(region => region.RegionName)];
     }
 
-    private static async Task<(RegionScan Region, IReadOnlyList<Resource> Resources)> Scan(
-        AWSCredentials credentials, string region, string accountId)
+    private static async Task<(Scan Scan, IReadOnlyList<Resource> Resources)> Scan(
+        AWSCredentials credentials, Collector collector, string? region, string accountId)
     {
+        await ScanSlots.WaitAsync();
+
         try
         {
-            var resources = await Task.WhenAll(Collectors.Select(collect => collect(credentials, region, accountId)));
+            var resources = await collector.Collect(credentials, region ?? "us-east-1", accountId);
 
-            return (new RegionScan(region, "scanned", null), [.. resources.SelectMany(found => found)]);
+            return (new Scan(region, collector.Type, "scanned", null), resources);
         }
         catch (AmazonServiceException exception) when (exception.StatusCode == HttpStatusCode.Forbidden
             || exception.ErrorCode is "UnauthorizedOperation" or "AuthFailure" or "AccessDenied" or "AccessDeniedException")
         {
-            return (new RegionScan(region, "skipped", "Access denied."), []);
+            return (new Scan(region, collector.Type, "skipped", "Access denied."), []);
         }
-        catch (AmazonServiceException exception)
+        catch (Exception exception)
         {
-            return (new RegionScan(region, "failed", exception.Message), []);
+            return (new Scan(region, collector.Type, "failed", exception.Message), []);
+        }
+        finally
+        {
+            ScanSlots.Release();
         }
     }
 }
